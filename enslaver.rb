@@ -23,15 +23,27 @@ class Enslaver
       puts 'slave error'
       puts e
     end
+    @mixer = 1
+    @playlist = 1
+    @player = 1
+    @output = 1
+    @mixer_done = 0
+    @playlist_done = 0
+    @player_done = 0
+    @output_done = 0
+    @run = 0
+    @run_done = 0
   end
 
   def mixer
     prepare
+    puts "Setting volume"
     @slave.volume=@master.volume
   end
 
   def playlist
     prepare
+    puts "Comparing playlists"
     src=@master.queue
     dst=@slave.queue
     ch=dst.map{|x| x.file}.sdiff(src.map{|x| x.file})
@@ -50,15 +62,14 @@ class Enslaver
     elsif dst.has_key?(:nextsongid) and src[:song] == dst[:nextsongid] and src[:time][0] + dst[:time][1] - dst[:time][0] < 5
       puts 'continue'
     else
-      if dst.has_key?(:song) and src[:song] == dst[:song]
-        puts 'paused?'
-        @slave.pause=@master.paused?
-        if @master.paused?
-          return
-        end
-      else
+      if not dst.has_key?(:song) or src[:song] != dst[:song]
         puts 'play'
         @slave.play(src[:song])
+      end
+      puts 'paused?'
+      @slave.pause=@master.paused?
+      if @master.paused?
+        return
       end
       dst=@slave.status
       if (src[:time][0] - dst[:time][0]).abs > 3
@@ -90,28 +101,84 @@ class Enslaver
     @idle.connect unless @idle.connected?
   end
 
-  def main
+  def act
+    while true
+     begin
+      puts [@playlist, @output, @mixer, @player].to_s
+      if @playlist_done < @playlist
+        @playlist_done = @playlist
+        playlist
+      end
+      if @output_done < @output
+        @output_done = @output
+        output
+      end
+      if @mixer_done < @mixer
+        @mixer_done = @mixer
+        mixer
+      end
+      if @player_done < @player
+        @player_done = @player
+        player
+      end
+      yield if block_given?
+     rescue
+      puts $!
+      puts $!.backtrace
+     end
+    end
+  end
+
+  def listen
     while true
       begin
         prepare
-        i = @idle.send_command('idle')
+        puts @idle.send_command :idle
+      rescue
+        puts $!
+      end
+    end
+  end
+    
+  def main sin
+    @act = Thread.new { act { Thread.stop if @run_done >= @run; @run_done = @run; sleep 0.05 } }
+    @act.run
+    while true
+      begin
+        prepare
+        if sin 
+          i = gets.chomp.to_sym
+        else
+          i = @idle.send_command :idle
+        end
         puts i
         case i
         when :mixer
-          mixer
+          @mixer+=1
         when :playlist
-          playlist
+          @playlist+=1
         when :player
-          player
+          @player+=1
         when :output
-          output
+          @output+=1
+        else
+          puts "Nothing"
+          next
         end
+        @run+=1
+        @act.run
       rescue
         puts $!
+        puts $!.backtrace
         sleep 1
       end
     end
   end
 end
 
-Enslaver.new('pong', 'pung').main
+e=Enslaver.new('pong', 'pung')
+if ARGV.delete('-l')
+  e.listen
+else
+  e.main ARGV.delete('-s')
+end
