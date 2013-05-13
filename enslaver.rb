@@ -179,6 +179,13 @@ end
 e=Enslaver.new('pong', 'pung')
 if ARGV.delete('-l')
   e.listen
+elif ARGV.delete('-p')
+  r, w = IO.pipe
+  if Process.fork { $> = w; e.listen }
+    w.close
+    $< = r
+    e.main true
+  end
 else
   e.main ARGV.delete('-s')
 end
