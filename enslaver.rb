@@ -59,7 +59,7 @@ class Enslaver
     if @master.stopped?
       puts 'stop'
       @slave.stop
-    elsif dst.has_key?(:nextsongid) and src[:song] == dst[:nextsongid] and src[:time][0] + dst[:time][1] - dst[:time][0] < 5
+    elsif dst.has_key?(:nextsongid) and src[:song] == dst[:nextsongid] and dst.has_key?(:time) and src[:time][0] + dst[:time][1] - dst[:time][0] < 5
       puts 'continue'
     else
       if not dst.has_key?(:song) or src[:song] != dst[:song]
@@ -125,6 +125,7 @@ class Enslaver
      rescue
       puts $!
       puts $!.backtrace
+      sleep 1
      end
     end
   end
@@ -136,6 +137,7 @@ class Enslaver
         puts @idle.send_command :idle
       rescue
         puts $!
+        sleep 5
       end
     end
   end
