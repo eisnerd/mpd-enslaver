@@ -1,0 +1,11 @@
+#!/bin/bash
+
+APP="$(dirname "$(readlink -m "$BASH_SOURCE")")"
+
+source $HOME/.rvm/scripts/rvm
+rvm use jruby
+while true
+do
+	stdbuf -oL ruby $APP/enslaver.rb -l|ruby $APP/enslaver.rb -s
+	sleep 10
+done
