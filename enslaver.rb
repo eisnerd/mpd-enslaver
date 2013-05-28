@@ -72,7 +72,7 @@ class Enslaver
         return
       end
       dst=@slave.status
-      if (src[:time][0] - dst[:time][0]).abs > 3
+      if src.has_key?(:time) and (!dst.has_key?(:time) or (src[:time][0] - dst[:time][0]).abs > 3)
         puts 'seek'
         @slave.seek(src[:time][0], {:pos => src[:song]})
       end
