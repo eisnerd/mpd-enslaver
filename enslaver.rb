@@ -5,20 +5,23 @@ require 'diff/lcs/array'
 
 class Enslaver
   def initialize(master_host, slave_host)
-    @idle = MPD.new master_host
-    @master = MPD.new master_host
-    @master.on :playlist do |pl|
-      playlist
-    end
-    @master.on :volume do |vol|
-      volume
-    end
+    @linked = false
+    @master_host = master_host
+    @idle = MPD.new @master_host
+    @master = MPD.new @master_host
+    #@master.on :playlist do |pl|
+    #  playlist
+    #end
+    #@master.on :volume do |vol|
+    #  volume
+    #end
     @master.on :error do |e|
       puts 'master error'
       puts e
     end
 
-    @slave = MPD.new slave_host
+    @slave_host = slave_host
+    @slave = MPD.new @slave_host
     @slave.on :error do |e|
       puts 'slave error'
       puts e
@@ -46,12 +49,25 @@ class Enslaver
     puts "Comparing playlists"
     src=@master.queue
     dst=@slave.queue
+    puts "#{src.length} vs #{dst.length}"
     ch=dst.map{|x| x.file}.sdiff(src.map{|x| x.file})
+    puts ch.select{|x| x.action != "="}.map(&:inspect)
     ch.reverse.each{|x| (puts @slave.delete(dst[x.old_position].pos) rescue []) if "!-".index x.action}.length
-    ch.each{|x| e=src[x.new_position]; (puts @slave.addid(e.file, e.pos) rescue []) if "!+".index x.action}.length
+    ch.each{|x| e=src[x.new_position]; print e.file, " as ", (@slave.addid(e.file, e.pos) rescue []), "\n" if "!+".index x.action}.length
+    puts "Playlists reconciled"
   end
 
   def player
+    begin
+      player_
+    rescue
+      puts $!
+      playlist
+      player_
+    end
+  end
+
+  def player_
     src=@master.status
     dst=@slave.status
     puts src
@@ -80,8 +96,9 @@ class Enslaver
   end
 
   def output
-    prepare
+    preparo
     dst=@slave.outputs
+    puts dst, dst.length
     @master.outputs.each{|x|
       dst.each{|y|
         if x[:outputname] == y[:outputname] and x[:outputenabled] != y[:outputenabled]
@@ -95,10 +112,33 @@ class Enslaver
     }
   end
 
+  def preparo
+    begin
+      @slave.connect unless @slave.connected?
+      @master.connect unless @master.connected?
+      @idle.connect unless @idle.connected?
+    rescue
+      puts $!
+      sleep 2
+      @idle = MPD.new @master_host
+      @master = MPD.new @master_host
+      @slave = MPD.new @slave_host
+      preparo
+    end
+  end
+
   def prepare
-    @slave.connect unless @slave.connected?
-    @master.connect unless @master.connected?
-    @idle.connect unless @idle.connected?
+    preparo
+    dst = @slave.outputs.map{|i| i[:outputname]}
+    # raise "Not linked" unless @master.channels.any? {|c| dst.include? c}
+    [@master.list_stickers("global", "slaves")].flatten.each {|a|
+     begin
+      as=a.to_s.split('=')
+      b=@slave.get_sticker("global", "slaves", as[0]).to_s.split('=')[1].to_i rescue 0
+      @slave.set_sticker("global", "slaves", as[0], as[1]+"="+as[2]) if as[1].to_i > b
+     rescue; end
+    }
+    raise "Not linked" unless [@master.list_stickers("global", "slaves")].flatten.any? {|c| (cs=c.to_s.split('='); cs[2] == "on" and dst.include? cs[0]) rescue false }
   end
 
   def act
@@ -133,7 +173,7 @@ class Enslaver
   def listen
     while true
       begin
-        prepare
+        preparo
         puts @idle.send_command :idle
       rescue
         puts $!
@@ -143,32 +183,46 @@ class Enslaver
   end
     
   def main sin
-    @act = Thread.new { act { Thread.stop if @run_done >= @run; @run_done = @run; sleep 0.05 } }
-    @act.run
+          playlist rescue []
+          mixer rescue []
+          output rescue []
+          player rescue []
     while true
       begin
-        prepare
+        preparo
         if sin 
           i = gets.chomp.to_sym
         else
           i = @idle.send_command :idle
         end
         puts i
-        case i
+        for j in [i].flatten
+        case j
         when :mixer
-          @mixer+=1
+          mixer
+	when :sticker
+	  playlist
+	  mixer
+	  output
+	  player
         when :playlist
-          @playlist+=1
+          playlist
+          mixer
+          output
+          player
         when :player
-          @player+=1
+          mixer
+          output
+          player
         when :output
-          @output+=1
+          mixer rescue []
+          output
+          player
         else
-          puts "Nothing"
+          puts "Nothing: #{i}"
           next
+        end rescue []
         end
-        @run+=1
-        @act.run
       rescue
         puts $!
         puts $!.backtrace
