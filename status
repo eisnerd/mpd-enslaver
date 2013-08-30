@@ -16,6 +16,17 @@ while true; do
  ) |sed '10{s/$/ .../;q}' > $base.next
  cp $base{.next,.now}
  echo start
+ echo status|netcat $host 6600|grep -q 'state: play'
+ state=$?
+ [ $disp -eq $state ]
+ if [ $state -eq 0 ]; then
+  tvservice -p
+  sudo chvt 8
+  sudo chvt 7
+ else
+  tvservice -o
+ fi
+ disp=$state
  mpc idle
 done |
 while read -t5 && sleep 2 || true; do
