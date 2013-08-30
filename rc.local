@@ -4,6 +4,7 @@ APP="$(dirname "$(readlink -m "$BASH_SOURCE")")"
 
 source $HOME/.rvm/scripts/rvm
 rvm use jruby
+$APP/status &
 while true
 do
 	stdbuf -oL ruby $APP/enslaver.rb -l|ruby $APP/enslaver.rb -s

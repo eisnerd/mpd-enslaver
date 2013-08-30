@@ -1,0 +1,26 @@
+#!/bin/bash
+
+disp=100
+host=${MPD_HOST:-localhost}
+
+base=/tmp/mpd.status
+rm -f $base.osd; mkfifo $base.osd;nohup xinit /bin/sh -c "xset s off; xset -dpms; xset s noblank; /usr/bin/osd_cat -l10 -a1 -d0 -pmiddle -Acenter -cwhite -f '-*-helvetica-*-r-normal--42-*-*' -Sdarkgray -s2 $base.osd" > /dev/null 2>&1 < /dev/null &
+
+rm -f $base.{now,last}
+touch $base.{now,last}
+while true; do
+ (
+ echo currentsong|netcat $host 6600|sed -n 's/\.[A-Za-z0-9]\{3,4\}$//;s/^\(Album\|Artist\|Title\): //p'|tac
+ echo
+ echo currentsong|netcat $host 6600|sed -n 's/Genre: //p'
+ ) |sed '10{s/$/ .../;q}' > $base.next
+ cp $base{.next,.now}
+ echo start
+ mpc idle
+done |
+while read -t5 && sleep 2 || true; do
+ cmp -s $base.{now,last} || {
+ cp $base.{now,last} &&
+ cat $base.now
+ }
+done > $base.osd
