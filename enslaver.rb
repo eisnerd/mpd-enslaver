@@ -75,8 +75,10 @@ class Enslaver
     if @master.stopped?
       puts 'stop'
       @slave.stop
-    elsif dst.has_key?(:nextsongid) and src[:song] == dst[:nextsongid] and dst.has_key?(:time) and src[:time][0] + dst[:time][1] - dst[:time][0] < 5
-      puts 'continue'
+    elsif dst.has_key?(:nextsong) and src[:song] == dst[:nextsong] and dst.has_key?(:time) and src[:time][0] + dst[:time][1] - dst[:time][0] < 5
+      puts 'continue dst'
+    elsif src.has_key?(:nextsong) and dst[:song] == src[:nextsong] and src.has_key?(:time) and dst[:time][0] + src[:time][1] - src[:time][0] < 5
+      puts 'continue src'
     else
       if not dst.has_key?(:song) or src[:song] != dst[:song]
         puts 'play'
