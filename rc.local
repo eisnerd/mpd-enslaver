@@ -3,10 +3,10 @@
 APP="$(dirname "$(readlink -m "$BASH_SOURCE")")"
 
 source $HOME/.rvm/scripts/rvm
-rvm use jruby
+rvm use ruby-head
 $APP/status &
 while true
 do
-	stdbuf -oL ruby $APP/enslaver.rb -l|ruby $APP/enslaver.rb -s
+	stdbuf -oL -eL ruby $APP/enslaver.rb
 	sleep 10
-done
+done 2>&1 | logger -t enslaver
