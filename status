@@ -1,6 +1,14 @@
 #!/bin/bash
 
-disp=100
+cleanup() {
+ tvservice -o
+ trap - INT TERM EXIT
+}
+trap cleanup INT TERM EXIT
+
+tvservice -s | grep -q "is off"
+disp=$?
+
 host=${MPD_HOST:-localhost}
 
 base=/tmp/mpd.status
