@@ -4,7 +4,9 @@ disp=100
 host=${MPD_HOST:-localhost}
 
 base=/tmp/mpd.status
-rm -f $base.osd; mkfifo $base.osd;nohup xinit /bin/sh -c "xset s off; xset -dpms; xset s noblank; /usr/bin/osd_cat -l10 -a1 -d0 -pmiddle -Acenter -cwhite -f '-*-helvetica-*-r-normal--42-*-*' -Sdarkgray -s2 $base.osd" > /dev/null 2>&1 < /dev/null &
+export DISPLAY=:13
+nohup X $DISPLAY > /dev/null 2>&1 < /dev/null &
+until xset s off && xset -dpms && xset s noblank; do sleep 1; done
 
 rm -f $base.{now,last}
 touch $base.{now,last}
@@ -16,6 +18,15 @@ while true; do
  ) |sed '10{s/$/ .../;q}' > $base.next
  cp $base{.next,.now}
  echo start
+ mpc idle
+done |
+while read -t5 && sleep 2 || true; do
+ cmp -s $base.{now,last} || {
+ cp $base.{now,last} &&
+ cat $base.now &&
+ echo --- &&
+ DISPLAY=:13 gnome-osd-client -f "<message id=\"mpd\" osd_vposition=\"center\" osd_halignment=\"center\" osd_font=\"Helvetica 48\" hide_timeout=\"10000000000\" hide_on_hover=\"false\" animations=\"true\" drop_shadow=\"true\"><span color=\"white\">$(cat $base.now)</span></message>"
+ }
  echo status|netcat $host 6600|grep ^state:|grep -vq play
  state=$?
  [ $disp -eq $state ] ||
@@ -25,13 +36,6 @@ while true; do
   tvservice -p
   sudo chvt 8
   sudo chvt 7
- fi
+ fi > /dev/null 2>&1
  disp=$state
- mpc idle
-done |
-while read -t5 && sleep 2 || true; do
- cmp -s $base.{now,last} || {
- cp $base.{now,last} &&
- cat $base.now
- }
-done > $base.osd
+done
