@@ -10,17 +10,18 @@ until xset s off && xset -dpms && xset s noblank; do sleep 1; done
 
 rm -f $base.{now,last}
 touch $base.{now,last}
-while true; do
+(echo start
+ while true; do
+  mpc idle
+ done) |
+while read -t10 || true; do
+ while read -t0; do true; done
  (
  echo currentsong|netcat $host 6600|awk ' !x[$0]++'|sed -n 's/\.[A-Za-z0-9]\{3,4\}$//;s/^\(Album\|Artist\|Title\): //p'|tac
  echo
  echo currentsong|netcat $host 6600|grep -vE ': *[a-z]{3,4}$' |sed -n 's/Genre: //p'|tac
  ) |sed '10{s/$/ .../;q}' > $base.next
  cp $base{.next,.now}
- echo start
- mpc idle
-done |
-while read -t5 && sleep 2 || true; do
  cmp -s $base.{now,last} || {
  cp $base.{now,last} &&
  cat $base.now &&
