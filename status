@@ -12,9 +12,9 @@ rm -f $base.{now,last}
 touch $base.{now,last}
 while true; do
  (
- echo currentsong|netcat $host 6600|sed -n 's/\.[A-Za-z0-9]\{3,4\}$//;s/^\(Album\|Artist\|Title\): //p'|tac
+ echo currentsong|netcat $host 6600|awk ' !x[$0]++'|sed -n 's/\.[A-Za-z0-9]\{3,4\}$//;s/^\(Album\|Artist\|Title\): //p'|tac
  echo
- echo currentsong|netcat $host 6600|sed -n 's/Genre: //p'
+ echo currentsong|netcat $host 6600|grep -vE ': *[a-z]{3,4}$' |sed -n 's/Genre: //p'|tac
  ) |sed '10{s/$/ .../;q}' > $base.next
  cp $base{.next,.now}
  echo start
